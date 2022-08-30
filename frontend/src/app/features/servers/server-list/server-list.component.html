@@ -1,0 +1,9 @@
+<button
+  data-test="create-audit-button"
+  mat-raised-button
+  color="accent"
+  (click)="createServer()">
+  Добавить
+</button>
+<p *ngFor="let server of $servers | async"> <app-server-card [server]="server"> </app-server-card></p>
+
