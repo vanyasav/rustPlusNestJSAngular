@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { RustPlusController } from './rust-plus.controller';
-import { RustPlusService } from './rust-plus.service';
+import { RustPlusService } from './services/rust-plus.service';
 
 describe('RustPlusController', () => {
   let controller: RustPlusController;

@@ -242,6 +242,16 @@ export class RustPlusService {
   }
 
   /**
+   *
+   * get team chat messages
+   */
+  async getTeamInfo() {
+    return this.sendRequestAsync({
+      getTeamInfo: {},
+    });
+  }
+
+  /**
    * - Returns entity info
    * @param id entity id
    */

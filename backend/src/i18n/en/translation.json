@@ -1,0 +1,35 @@
+{
+  "CARGO_LEFT_MAP": "Cargo ship has left the map",
+  "CARGO_SPAWNED": "Cargo ship has spawned @",
+  "HELI_LEFT_MAP": "Attack helicopter has left the map",
+  "HELI_DESTROYED": "Attack helicopter was destroyed @",
+  "HELI_SPAWNED": "Attack helicopter has spawned @",
+  "LOCKED_CRATE_DROPPED": "Locked Crate was dropped $t(HELI_SPAWNED) @$t(translation.`{location}`){grid}",
+  "NORTH_WEST": "North West",
+  "SOUTH_WEST": "South West",
+  "NORTH_EAST": "North East",
+  "SOUTH_EAST": "South East",
+  "WEST_OF_GRID": "West of grid ",
+  "EAST_OF_GRID": "East of grid ",
+  "SOUTH_OF_GRID": "South of grid ",
+  "NORTH_OF_GRID": "North of grid ",
+  "HELLO": "Hello",
+  "PRODUCT": {
+    "NEW": "New Product: {name}"
+  },
+  "ENGLISH": "English",
+  "ARRAY": ["ONE", "TWO", "THREE"],
+  "cat": "Cat",
+  "cat_name": "Cat: {name}",
+  "set-up-password": {
+    "heading": "Hello, {username}",
+    "title": "Forgot password",
+    "followLink": "Please follow the link to set up your password"
+  },
+  "day_interval": {
+    "one": "Every day",
+    "other": "Every {count} days",
+    "zero": "Never"
+  },
+  "nested": "We go shopping: $t(test.day_interval, {{\"count\": {count} }})"
+}

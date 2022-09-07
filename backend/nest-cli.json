@@ -5,7 +5,8 @@
   "compilerOptions": {
     "webpack": false,
     "assets": [
-      "**/*.proto"
+      "**/*.proto",
+      "i18n/**/*"
     ],
     "watchAssets": true
   }

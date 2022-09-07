@@ -1,12 +1,13 @@
-import * as itemList from './json/items.json';
+import * as itemList from '../json/items.json';
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { RustPlusService } from './rust-plus.service';
 import { OnEvent } from '@nestjs/event-emitter';
-import { MapService } from './helpers/map.service';
+import { MapService } from '../helpers/map.service';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob } from 'cron';
-import { IOilRig } from './interfaces';
-import { ServersService } from '../servers/servers.service';
+import { IOilRig } from '../interfaces';
+import { ServersService } from '../../servers/servers.service';
+import { TranslationService } from './translate.service';
 
 @Injectable()
 export class RustPlusHandlerService implements OnModuleInit {
@@ -17,6 +18,7 @@ export class RustPlusHandlerService implements OnModuleInit {
   cargoCrates = [];
   heliMarker;
   currentCH47 = [];
+  teammates = [];
   oil_rig: IOilRig = {
     large: {
       crate: { exists: false, x: 0, y: 0, id: 0 },
@@ -39,7 +41,8 @@ export class RustPlusHandlerService implements OnModuleInit {
     private rustPlusService: RustPlusService,
     private serversService: ServersService,
     private mapService: MapService,
-    private schedulerRegistry: SchedulerRegistry, // @InjectBot() private readonly bot: Telegraf<Context>,
+    private schedulerRegistry: SchedulerRegistry,
+    private translationService: TranslationService, // private i18n: I18nContext, // @InjectBot() private readonly bot: Telegraf<Context>,
   ) {}
 
   async onModuleInit() {
@@ -64,12 +67,15 @@ export class RustPlusHandlerService implements OnModuleInit {
     await this.addCronJob('oil_rig');
   }
 
-  async debug(message, telegram = false) {
-    console.log(message);
-    // if (telegram) {
-    //    await this.bot.telegram.sendMessage('57495778', message);
-    // }
-    await this.rustPlusService.sendTeamMessage(message);
+  async debug(message, options = {}) {
+    const translation = await this.translationService.translate(
+      'translation.' + message,
+      {
+        args: options,
+      },
+    );
+    console.log(translation);
+    await this.rustPlusService.sendTeamMessage(translation);
   }
 
   /**
@@ -79,7 +85,7 @@ export class RustPlusHandlerService implements OnModuleInit {
     const map = await this.rustPlusService.sendRequestAsync({
       getMap: {},
     });
-    this.mapSize = map.map.width + map.map.oceanMargin * 2;
+    this.mapSize = 4000;
     const monuments = map.map.monuments.map((monument) => ({
       ...monument,
       location: this.mapService.getPos(monument.x, monument.y, this.mapSize),
@@ -156,22 +162,14 @@ export class RustPlusHandlerService implements OnModuleInit {
 
       if (!marker && this.oil_rig[oil_rig_type].crate.exists) {
         this.oil_rig[oil_rig_type].crate.exists = false;
-        await this.debug(
-          (oil_rig_type === 'small' ? 'Small oil rig' : 'Large oil rig') +
-            ' crate has been looted!',
-          false,
-        );
+        await this.debug(oil_rig_type.toString().toUpperCase() + '_LOOTED');
         this.currentCrates = this.currentCrates.filter(
           (crate) => crate.id !== this.oil_rig[oil_rig_type].crate.id,
         );
       }
       if (marker && !this.oil_rig[oil_rig_type].crate.exists) {
         this.oil_rig[oil_rig_type].crate.exists = true;
-        await this.debug(
-          (oil_rig_type === 'small' ? 'Small oil rig' : 'Large oil rig') +
-            ' crate has spawned!',
-          true,
-        );
+        await this.debug(oil_rig_type.toString().toUpperCase() + '_SPAWNED');
       }
     } catch (e) {
       console.log(e);
@@ -202,19 +200,19 @@ export class RustPlusHandlerService implements OnModuleInit {
         });
         if (marker) {
           this.cargoCrates.push(marker);
-          let message;
+          let number;
           switch (this.cargoCrates.length) {
             case 1:
-              message = '1st';
+              number = '1st';
               break;
             case 2:
-              message = '2nd';
+              number = '2nd';
               break;
             case 3:
-              message = '3rd';
+              number = '3rd';
               break;
           }
-          await this.debug(message + ' cargo crate spawned!');
+          await this.debug('CARGO_CRATE_SPAWNED', { number });
         }
       }
     } catch (e) {
@@ -255,9 +253,8 @@ export class RustPlusHandlerService implements OnModuleInit {
         if (location) {
           this.currentCrates.push(marker);
           await this.debug(
-            'Locked Crate was dropped in ' +
-              this.mapService.getPos(marker.x, marker.y, this.mapSize),
-            true,
+            'LOCKED_CRATE_DROPPED',
+            this.mapService.getPos(marker.x, marker.y, this.mapSize),
           );
         }
       }
@@ -267,10 +264,8 @@ export class RustPlusHandlerService implements OnModuleInit {
         );
         if (!marker) {
           await this.debug(
-            'Locked Crate in ' +
-              this.mapService.getPos(crate.x, crate.y, this.mapSize) +
-              ' was looted',
-            true,
+            'LOCKED_CRATE_LOOTED',
+            this.mapService.getPos(crate.x, crate.y, this.mapSize),
           );
           this.currentCrates = this.currentCrates.filter(
             (currentCrate) => crate.id !== currentCrate.id,
@@ -291,15 +286,13 @@ export class RustPlusHandlerService implements OnModuleInit {
       if (!marker && this.cargoShip.exists) {
         this.cargoShip.exists = false;
         this.cargoCrates = [];
-        await this.debug('Cargo has left the map', false);
+        await this.debug('CARGO_LEFT_MAP');
       } else if (marker) {
         if (!this.cargoShip.exists) {
           this.cargoShip.exists = true;
           await this.debug(
-            'Cargo ship spawned on the ' +
-              this.mapService.getPos(marker.x, marker.y, this.mapSize) +
-              ' of the map',
-            false,
+            'CARGO_SPAWNED',
+            this.mapService.getPos(marker.x, marker.y, this.mapSize),
           );
         }
         this.cargoShip.x = marker.x;
@@ -340,22 +333,16 @@ export class RustPlusHandlerService implements OnModuleInit {
             large_y > marker.y - 500 &&
             large_y < marker.y + 500
           ) {
-            await this.debug('Large oil crate was activated at ' + time, false);
-            setTimeout(
-              async () => await this.debug('Large oil crate is open', false),
-              900000,
-            );
+            await this.debug('LARGE_ACTIVATED', { time });
+            setTimeout(async () => await this.debug('LARGE_OPEN'), 900000);
           } else if (
             small_x > marker.x - 500 &&
             small_x < marker.x + 500 &&
             small_y > marker.y - 500 &&
             small_y < marker.y + 500
           ) {
-            await this.debug('Small oil crate was activated at ' + time, false);
-            setTimeout(
-              async () => await this.debug('Small oil crate is open', false),
-              900000,
-            );
+            await this.debug('SMALL_ACTIVATED', { time });
+            setTimeout(async () => await this.debug('SMALL_OPEN'), 900000);
           }
         }
       }
@@ -370,6 +357,54 @@ export class RustPlusHandlerService implements OnModuleInit {
       });
     } catch (e) {
       console.log(e);
+    }
+  }
+
+  async checkTeammates() {
+    const teamInfo = await this.rustPlusService.getTeamInfo();
+    const players = teamInfo.teamInfo.members;
+    if (!this.teammates) {
+      this.teammates = players;
+    } else {
+      for (const player of players) {
+        const dead_player = this.teammates.find((teammate) => {
+          return (
+            teammate.name === player.name && teammate.isAlive && !player.isAlive
+          );
+        });
+        const offline_player = this.teammates.find((teammate) => {
+          return (
+            teammate.name === player.name &&
+            teammate.isOnline &&
+            !player.isOnline
+          );
+        });
+        const online_player = this.teammates.find((teammate) => {
+          return (
+            teammate.name === player.name &&
+            !teammate.isOnline &&
+            player.isOnline
+          );
+        });
+        if (dead_player) {
+          await this.debug('PLAYER_DIED', {
+            name: player.name,
+            ...this.mapService.getPos(player.x, player.y, this.mapSize),
+          });
+        }
+        if (online_player) {
+          await this.debug('PLAYER_ONLINE', {
+            name: player.name,
+          });
+        }
+        if (offline_player) {
+          await this.debug('PLAYER_OFFLINE', {
+            name: player.name,
+            ...this.mapService.getPos(player.x, player.y, this.mapSize),
+          });
+        }
+      }
+      this.teammates = players;
     }
   }
 
@@ -391,23 +426,19 @@ export class RustPlusHandlerService implements OnModuleInit {
         explosion.y > this.heliMarker.y - 100 &&
         explosion.y < this.heliMarker.y + 100
       ) {
-        const loc = this.mapService.getGridPos(
-          explosion.x,
-          explosion.y,
-          this.mapSize,
+        await this.debug(
+          'HELI_DESTROYED',
+          this.mapService.getPos(explosion.x, explosion.y, this.mapSize),
         );
-        await this.debug('Attack helicopter was destroyed in ' + loc, false);
       } else {
-        await this.debug('Attack helicopter has left the map', false);
+        await this.debug('HELI_LEFT_MAP');
       }
     }
     if (marker && !this.heli.exists) {
       this.heli.exists = true;
       await this.debug(
-        'Attack helicopter spawned on the ' +
-          this.mapService.getPos(marker.x, marker.y, this.mapSize) +
-          ' of the map',
-        false,
+        'HELI_SPAWNED',
+        this.mapService.getPos(marker.x, marker.y, this.mapSize),
       );
     }
   }
@@ -478,6 +509,7 @@ export class RustPlusHandlerService implements OnModuleInit {
     await this.checkHeli(mapMarkers);
     await this.checkCH47(mapMarkers);
     await this.checkCargoCrate(mapMarkers);
+    await this.checkTeammates();
     // await this.checkShop(mapMarkers);
     //let all cargo crates be pushed to an array (if they exist on app start)
     setTimeout(async () => await this.checkCH47Crate(mapMarkers), 20000);

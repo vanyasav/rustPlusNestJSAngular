@@ -1,5 +1,5 @@
 import { Controller, Get, HttpCode, HttpStatus, Query } from '@nestjs/common';
-import { RustPlusService } from './rust-plus.service';
+import { RustPlusService } from './services/rust-plus.service';
 
 @Controller('rust-plus')
 export class RustPlusController {
@@ -58,6 +58,15 @@ export class RustPlusController {
   async getTeamChat() {
     try {
       return await this.rustPlusService.getTeamChat();
+    } catch (e) {
+      return e;
+    }
+  }
+
+  @Get('/teamInfo')
+  async getTeamInfo() {
+    try {
+      return await this.rustPlusService.getTeamInfo();
     } catch (e) {
       return e;
     }

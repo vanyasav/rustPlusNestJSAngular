@@ -9,27 +9,29 @@ export class MapService {
     if (this.isOutsideGridSystem(x, y, correctedMapSize)) {
       if (this.isOutsideRowOrColumn(x, y, correctedMapSize)) {
         if (x < 0 && y > correctedMapSize) {
-          return 'North West';
+          return { location: 'NORTH_WEST' };
         } else if (x < 0 && y < 0) {
-          return 'South West';
+          return { location: 'SOUTH_WEST' };
         } else if (x > correctedMapSize && y > correctedMapSize) {
-          return 'North East';
+          return { location: 'NORTH_EAST' };
         } else {
-          return 'South East';
+          return { location: 'SOUTH_EAST' };
         }
       } else {
-        let str = '';
         if (x < 0 || x > correctedMapSize) {
-          str += x < 0 ? 'West of grid ' : 'East of grid ';
-          str += `${this.getGridPosNumberY(y, correctedMapSize)}`;
+          const grid = this.getGridPosNumberY(y, correctedMapSize);
+          return x < 0
+            ? { location: 'WEST_OF_GRID', grid }
+            : { location: 'EAST_OF_GRID', grid };
         } else {
-          str += y < 0 ? 'South of grid ' : 'North of grid ';
-          str += `${this.getGridPosLettersX(x, correctedMapSize)}`;
+          const grid = this.getGridPosLettersX(x, correctedMapSize);
+          return y < 0
+            ? { location: 'SOUTH_OF_GRID', grid }
+            : { location: 'NORTH_OF_GRID', grid };
         }
-        return str;
       }
     } else {
-      return this.getGridPos(x, y, mapSize);
+      return { grid: this.getGridPos(x, y, mapSize) };
     }
   }
 
