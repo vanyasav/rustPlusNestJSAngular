@@ -13,6 +13,7 @@ import { TranslationService } from './translate.service';
 export class RustPlusHandlerService implements OnModuleInit {
   mapSize;
   shopName = process.env.SHOP_NAME;
+  // shopName = process.env.SHOP_NAME;
   sellOrders = [];
   currentCrates = [];
   cargoCrates = [];
@@ -22,27 +23,27 @@ export class RustPlusHandlerService implements OnModuleInit {
   oil_rig: IOilRig = {
     large: {
       crate: { exists: false, x: 0, y: 0, id: 0 },
-      monument: { x: 0, y: 0 },
+      monument: { x: 0, y: 0 }
     },
     small: {
       crate: { exists: false, x: 0, y: 0, id: 0 },
-      monument: { x: 0, y: 0 },
-    },
+      monument: { x: 0, y: 0 }
+    }
   };
   cargoShip = {
     exists: false,
     x: 0,
-    y: 0,
+    y: 0
   };
   heli = {
-    exists: false,
+    exists: false
   };
   constructor(
     private rustPlusService: RustPlusService,
     private serversService: ServersService,
     private mapService: MapService,
     private schedulerRegistry: SchedulerRegistry,
-    private translationService: TranslationService, // private i18n: I18nContext, // @InjectBot() private readonly bot: Telegraf<Context>,
+    private translationService: TranslationService // private i18n: I18nContext, // @InjectBot() private readonly bot: Telegraf<Context>,
   ) {}
 
   async onModuleInit() {
@@ -53,7 +54,7 @@ export class RustPlusHandlerService implements OnModuleInit {
         server.serverIp,
         server.appPort,
         process.env.PLAYER_ID,
-        server.playerToken,
+        server.playerToken
       );
     });
   }
@@ -64,15 +65,16 @@ export class RustPlusHandlerService implements OnModuleInit {
     await this.initMonuments();
     await this.initCargoOrHeli(5);
     await this.initCargoOrHeli(8);
-    await this.addCronJob('oil_rig');
+    if (!this.schedulerRegistry.doesExist('cron', 'oil_rig'))
+      await this.addCronJob('oil_rig');
   }
 
   async debug(message, options = {}) {
     const translation = await this.translationService.translate(
       'translation.' + message,
       {
-        args: options,
-      },
+        args: options
+      }
     );
     console.log(translation);
     await this.rustPlusService.sendTeamMessage(translation);
@@ -83,18 +85,18 @@ export class RustPlusHandlerService implements OnModuleInit {
    */
   async initMonuments() {
     const map = await this.rustPlusService.sendRequestAsync({
-      getMap: {},
+      getMap: {}
     });
-    this.mapSize = 4000;
+    this.mapSize = process.env.MAP_SIZE;
     const monuments = map.map.monuments.map((monument) => ({
       ...monument,
-      location: this.mapService.getPos(monument.x, monument.y, this.mapSize),
+      location: this.mapService.getPos(monument.x, monument.y, this.mapSize)
     }));
     const small_oil = monuments.find(
-      (monument) => monument.token === 'oil_rig_small',
+      (monument) => monument.token === 'oil_rig_small'
     );
     const large_oil = monuments.find(
-      (monument) => monument.token === 'large_oil_rig',
+      (monument) => monument.token === 'large_oil_rig'
     );
 
     this.oil_rig.large.monument.x = large_oil.x;
@@ -109,10 +111,10 @@ export class RustPlusHandlerService implements OnModuleInit {
    */
   async initCargoOrHeli(type) {
     const result = await this.rustPlusService.sendRequestAsync({
-      getMapMarkers: {},
+      getMapMarkers: {}
     });
     const event = result.mapMarkers.markers.find(
-      (marker) => marker.type === type,
+      (marker) => marker.type === type
     );
 
     let name;
@@ -146,7 +148,7 @@ export class RustPlusHandlerService implements OnModuleInit {
             marker.x - 30 < x &&
             marker.x + 30 > x &&
             marker.y - 30 < y &&
-            marker.y + 30 > y,
+            marker.y + 30 > y
         );
         if (marker) {
           this.oil_rig[oil_rig_type].crate.x = marker.x;
@@ -156,7 +158,7 @@ export class RustPlusHandlerService implements OnModuleInit {
         }
       } else {
         marker = mapMarkers.mapMarkers.markers.find(
-          (marker) => marker.x === crate_x && marker.y === crate_y,
+          (marker) => marker.x === crate_x && marker.y === crate_y
         );
       }
 
@@ -164,7 +166,7 @@ export class RustPlusHandlerService implements OnModuleInit {
         this.oil_rig[oil_rig_type].crate.exists = false;
         await this.debug(oil_rig_type.toString().toUpperCase() + '_LOOTED');
         this.currentCrates = this.currentCrates.filter(
-          (crate) => crate.id !== this.oil_rig[oil_rig_type].crate.id,
+          (crate) => crate.id !== this.oil_rig[oil_rig_type].crate.id
         );
       }
       if (marker && !this.oil_rig[oil_rig_type].crate.exists) {
@@ -247,28 +249,28 @@ export class RustPlusHandlerService implements OnModuleInit {
         const location = this.mapService.getGridPos(
           marker.x,
           marker.y,
-          this.mapSize,
+          this.mapSize
         );
         //If location is null, crate is on oil rig and we do not need to notify about it again
         if (location) {
           this.currentCrates.push(marker);
           await this.debug(
             'LOCKED_CRATE_DROPPED',
-            this.mapService.getPos(marker.x, marker.y, this.mapSize),
+            this.mapService.getPos(marker.x, marker.y, this.mapSize)
           );
         }
       }
       for (const crate of this.currentCrates) {
         const marker = mapMarkers.mapMarkers.markers.find(
-          (marker) => marker.id === crate.id,
+          (marker) => marker.id === crate.id
         );
         if (!marker) {
           await this.debug(
             'LOCKED_CRATE_LOOTED',
-            this.mapService.getPos(crate.x, crate.y, this.mapSize),
+            this.mapService.getPos(crate.x, crate.y, this.mapSize)
           );
           this.currentCrates = this.currentCrates.filter(
-            (currentCrate) => crate.id !== currentCrate.id,
+            (currentCrate) => crate.id !== currentCrate.id
           );
         }
       }
@@ -280,7 +282,7 @@ export class RustPlusHandlerService implements OnModuleInit {
   async checkCargo(result) {
     try {
       const marker = result.mapMarkers.markers.find(
-        (marker) => marker.type === 5,
+        (marker) => marker.type === 5
       );
 
       if (!marker && this.cargoShip.exists) {
@@ -292,7 +294,7 @@ export class RustPlusHandlerService implements OnModuleInit {
           this.cargoShip.exists = true;
           await this.debug(
             'CARGO_SPAWNED',
-            this.mapService.getPos(marker.x, marker.y, this.mapSize),
+            this.mapService.getPos(marker.x, marker.y, this.mapSize)
           );
         }
         this.cargoShip.x = marker.x;
@@ -306,7 +308,7 @@ export class RustPlusHandlerService implements OnModuleInit {
   async checkCH47(result) {
     try {
       const markers = result.mapMarkers.markers.filter(
-        (marker) => marker.type === 4,
+        (marker) => marker.type === 4
       );
 
       for (const marker of markers) {
@@ -351,7 +353,7 @@ export class RustPlusHandlerService implements OnModuleInit {
         const CH47 = markers.find((marker) => marker.id === ch.id);
         if (!CH47) {
           this.currentCH47 = this.currentCH47.filter(
-            (marker) => marker.id !== ch.id,
+            (marker) => marker.id !== ch.id
           );
         }
       });
@@ -389,18 +391,18 @@ export class RustPlusHandlerService implements OnModuleInit {
         if (dead_player) {
           await this.debug('PLAYER_DIED', {
             name: player.name,
-            ...this.mapService.getPos(player.x, player.y, this.mapSize),
+            ...this.mapService.getPos(player.x, player.y, this.mapSize)
           });
         }
         if (online_player) {
           await this.debug('PLAYER_ONLINE', {
-            name: player.name,
+            name: player.name
           });
         }
         if (offline_player) {
           await this.debug('PLAYER_OFFLINE', {
             name: player.name,
-            ...this.mapService.getPos(player.x, player.y, this.mapSize),
+            ...this.mapService.getPos(player.x, player.y, this.mapSize)
           });
         }
       }
@@ -410,14 +412,14 @@ export class RustPlusHandlerService implements OnModuleInit {
 
   async checkHeli(result) {
     const marker = result.mapMarkers.markers.find(
-      (marker) => marker.type === 8,
+      (marker) => marker.type === 8
     );
     if (marker) this.heliMarker = marker;
 
     if (!marker && this.heli.exists) {
       this.heli.exists = false;
       const explosion = result.mapMarkers.markers.find(
-        (marker) => marker.type === 2,
+        (marker) => marker.type === 2
       );
       if (
         explosion &&
@@ -428,7 +430,7 @@ export class RustPlusHandlerService implements OnModuleInit {
       ) {
         await this.debug(
           'HELI_DESTROYED',
-          this.mapService.getPos(explosion.x, explosion.y, this.mapSize),
+          this.mapService.getPos(explosion.x, explosion.y, this.mapSize)
         );
       } else {
         await this.debug('HELI_LEFT_MAP');
@@ -438,7 +440,7 @@ export class RustPlusHandlerService implements OnModuleInit {
       this.heli.exists = true;
       await this.debug(
         'HELI_SPAWNED',
-        this.mapService.getPos(marker.x, marker.y, this.mapSize),
+        this.mapService.getPos(marker.x, marker.y, this.mapSize)
       );
     }
   }
@@ -501,7 +503,7 @@ export class RustPlusHandlerService implements OnModuleInit {
 
   async checkCrates() {
     const mapMarkers = await this.rustPlusService.sendRequestAsync({
-      getMapMarkers: {},
+      getMapMarkers: {}
     });
     await this.checkOilCrate('small', mapMarkers);
     await this.checkOilCrate('large', mapMarkers);
@@ -517,6 +519,8 @@ export class RustPlusHandlerService implements OnModuleInit {
 
   @OnEvent('disconnected')
   onDisconnected() {
+    if (!this.schedulerRegistry.doesExist('cron', 'oil_rig'))
+      this.schedulerRegistry.deleteCronJob('oil_rig');
     console.log('disconnected');
   }
 
@@ -529,7 +533,7 @@ export class RustPlusHandlerService implements OnModuleInit {
       const value = entityChanged.payload.value;
 
       console.log(
-        'entity ' + entityId + ' is now ' + (value ? 'active' : 'inactive'),
+        'entity ' + entityId + ' is now ' + (value ? 'active' : 'inactive')
       );
     }
   }

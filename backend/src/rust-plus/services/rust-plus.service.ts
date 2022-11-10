@@ -155,7 +155,7 @@ export class RustPlusService {
       seq: currentSeq,
       playerId: this.playerId,
       playerToken: this.playerToken,
-      ...data, // merge in provided data for AppRequest
+      ...data // merge in provided data for AppRequest
     });
 
     // send AppRequest packet to rust server
@@ -172,9 +172,11 @@ export class RustPlusService {
    */
   sendRequestAsync(data, timeoutMilliseconds = 10000): Promise<any> {
     return new Promise((resolve, reject) => {
-      // reject promise after timeout
+      // try to connect again after timeout
       const timeout = setTimeout(() => {
-        reject(new Error('Timeout reached while waiting for response'));
+        this.disconnect();
+        this.connect();
+        // reject(new Error('Timeout reached while waiting for response'));
       }, timeoutMilliseconds);
 
       // send request
@@ -201,8 +203,8 @@ export class RustPlusService {
     return await this.sendRequestAsync({
       entityId: id,
       setEntityValue: {
-        value: true,
-      },
+        value: true
+      }
     });
   }
 
@@ -214,8 +216,8 @@ export class RustPlusService {
     return await this.sendRequestAsync({
       entityId: id,
       setEntityValue: {
-        value: false,
-      },
+        value: false
+      }
     });
   }
 
@@ -226,8 +228,8 @@ export class RustPlusService {
   async sendTeamMessage(message: string) {
     return this.sendRequestAsync({
       sendTeamMessage: {
-        message: message,
-      },
+        message: message
+      }
     });
   }
 
@@ -237,7 +239,7 @@ export class RustPlusService {
    */
   async getTeamChat() {
     return this.sendRequestAsync({
-      getTeamChat: {},
+      getTeamChat: {}
     });
   }
 
@@ -247,7 +249,7 @@ export class RustPlusService {
    */
   async getTeamInfo() {
     return this.sendRequestAsync({
-      getTeamInfo: {},
+      getTeamInfo: {}
     });
   }
 
@@ -258,7 +260,7 @@ export class RustPlusService {
   async getEntityInfo(id: number) {
     return await this.sendRequestAsync({
       entityId: id,
-      getEntityInfo: {},
+      getEntityInfo: {}
     });
   }
   /**
@@ -270,29 +272,29 @@ export class RustPlusService {
    */
   async getMapMarkers() {
     const result = await this.sendRequestAsync({
-      getMapMarkers: {},
+      getMapMarkers: {}
     });
     //Filter and return everything without vendingMachines
     //Change condition in case of probable errors
     return result['mapMarkers'].markers.filter(
-      (marker) => !marker.sellOrders.length,
+      (marker) => !marker.sellOrders.length
     );
   }
 
-  async getAllMarkers() {
-    const result = await this.sendRequestAsync({
-      getMapMarkers: {},
-    });
-    //Filter and return everything without vendingMachines
-    //Change condition in case of probable errors
-    return result['mapMarkers'].markers.filter(
-      (marker) => marker.name === '=RX=ON TOP! Fuck Offliners!',
-    );
-  }
+  // async getAllMarkers() {
+  //   const result = await this.sendRequestAsync({
+  //     getMapMarkers: {}
+  //   });
+  //   //Filter and return everything without vendingMachines
+  //   //Change condition in case of probable errors
+  //   return result['mapMarkers'].markers.filter(
+  //     (marker) => marker.name === '=RX=ON TOP! Fuck Offliners!'
+  //   );
+  // }
 
   async getMap() {
     const map = await this.sendRequestAsync({
-      getMap: {},
+      getMap: {}
     });
     return map;
     // return map.map.monuments.map((monument) => ({
@@ -300,14 +302,4 @@ export class RustPlusService {
     //   location: this.mapService.getGridPos(monument.x, monument.y, 4000),
     // }));
   }
-
-  // async onModuleInit() {
-  //   console.log(`Initialization...`);
-  //   this.init(
-  //     process.env.SERVER_IP,
-  //     process.env.APP_PORT,
-  //     process.env.PLAYER_ID,
-  //     process.env.PLAYER_TOKEN,
-  //   );
-  // }
 }
