@@ -35,6 +35,10 @@ export class RustPlusHandlerService implements OnModuleInit {
     x: 0,
     y: 0
   };
+  launchSite = {
+    explosion: { exists: false, x: 0, y: 0, id: 0 },
+    monument: { x: 0, y: 0 }
+  };
   heli = {
     exists: false
   };
@@ -61,12 +65,26 @@ export class RustPlusHandlerService implements OnModuleInit {
 
   @OnEvent('connected')
   async onConnected() {
+    if (this.schedulerRegistry.doesExist('cron', 'reconnecting'))
+      this.schedulerRegistry.deleteCronJob('reconnecting');
     console.log('connected');
-    await this.initMonuments();
-    await this.initCargoOrHeli(5);
-    await this.initCargoOrHeli(8);
-    if (!this.schedulerRegistry.doesExist('cron', 'oil_rig'))
-      await this.addCronJob('oil_rig');
+    try {
+      const mapMarkers = await this.rustPlusService.sendRequestAsync({
+        getMapMarkers: {}
+      });
+
+      const map = await this.rustPlusService.sendRequestAsync({
+        getMap: {}
+      });
+
+      await this.initMonuments(map);
+      await this.initCargoOrHeli(5, mapMarkers);
+      await this.initCargoOrHeli(8, mapMarkers);
+      if (!this.schedulerRegistry.doesExist('cron', 'oil_rig'))
+        await this.addCronJob('oil_rig');
+    } catch (e) {
+      console.log(e);
+    }
   }
 
   async debug(message, options = {}) {
@@ -83,10 +101,7 @@ export class RustPlusHandlerService implements OnModuleInit {
   /**
    * Get and save oil rigs coordinates, map Size
    */
-  async initMonuments() {
-    const map = await this.rustPlusService.sendRequestAsync({
-      getMap: {}
-    });
+  async initMonuments(map) {
     this.mapSize = process.env.MAP_SIZE;
     const monuments = map.map.monuments.map((monument) => ({
       ...monument,
@@ -99,21 +114,25 @@ export class RustPlusHandlerService implements OnModuleInit {
       (monument) => monument.token === 'large_oil_rig'
     );
 
+    const launch_site = monuments.find(
+      (monument) => monument.token === 'launchsite'
+    );
+
     this.oil_rig.large.monument.x = large_oil.x;
     this.oil_rig.large.monument.y = large_oil.y;
     this.oil_rig.small.monument.x = small_oil.x;
     this.oil_rig.small.monument.y = small_oil.y;
+    this.launchSite.monument.x = launch_site.x;
+    this.launchSite.monument.y = launch_site.y;
   }
 
   /**
    * Check cargo and heli on start
    * @param type cargo_ship:5 || heli:8
+   * @param mapMarkers
    */
-  async initCargoOrHeli(type) {
-    const result = await this.rustPlusService.sendRequestAsync({
-      getMapMarkers: {}
-    });
-    const event = result.mapMarkers.markers.find(
+  async initCargoOrHeli(type, mapMarkers) {
+    const event = mapMarkers.mapMarkers.markers.find(
       (marker) => marker.type === type
     );
 
@@ -445,57 +464,88 @@ export class RustPlusHandlerService implements OnModuleInit {
     }
   }
 
-  // async checkShop(mapMarkers) {
-  //   const marker = mapMarkers.mapMarkers.markers.find(
-  //     (marker) => marker.name === this.shopName,
-  //   );
-  //   if (marker) {
-  //     console.log(marker);
-  //     const items = marker.sellOrders;
-  //     if (!this.sellOrders.length) {
-  //       this.sellOrders = items.filter((item) => {
-  //         return item.amountInStock > 0;
-  //       });
-  //     } else {
-  //       for (const order of this.sellOrders) {
-  //         const item = items.find(
-  //           (item) =>
-  //             item.itemId === order.itemId &&
-  //             item.currencyId === order.currencyId,
-  //         );
-  //         if (item) {
-  //           const difference = order.amountInStock - item.amountInStock;
-  //           if (difference > 0) {
-  //             const duplicate = items.find(
-  //               (duplicate) => duplicate.itemId === item.itemId,
-  //             );
-  //             if (duplicate) {
-  //               console.log('DUPLICATE');
-  //             }
-  //             await this.debug(
-  //               difference +
-  //                 ' ' +
-  //                 itemList[order.itemId.toString()] +
-  //                 ' was sold for ' +
-  //                 order.costPerItem +
-  //                 ' ' +
-  //                 itemList[order.currencyId.toString()],
-  //               false,
-  //             );
-  //           }
-  //         }
-  //       }
-  //       this.sellOrders = items.filter((item) => {
-  //         return item.amountInStock > 0;
-  //       });
-  //       // console.log(this.sellOrders);
-  //     }
-  //   }
-  // }
+  async checkBradley(mapMarkers) {
+    const explosion = mapMarkers.mapMarkers.markers.find(
+      (marker) => marker.type === 2
+    );
+    if (
+      !this.launchSite.explosion.exists &&
+      explosion &&
+      explosion.x > this.launchSite.monument.x - 300 &&
+      explosion.x < this.launchSite.monument.x + 300 &&
+      explosion.y > this.launchSite.monument.y - 300 &&
+      explosion.y < this.launchSite.monument.y + 300
+    ) {
+      this.launchSite.explosion.exists = true;
+      await this.debug(
+        'BRADLEY_DESTROYED',
+        this.mapService.getPos(explosion.x, explosion.y, this.mapSize)
+      );
+    } else if (!explosion && this.launchSite.explosion.exists) {
+      this.launchSite.explosion.exists = false;
+    }
+  }
+
+  async checkShop(mapMarkers) {
+    // console.log(mapMarkers.mapMarkers.markers);
+    const marker = mapMarkers.mapMarkers.markers.find(
+      (marker) => marker.name === this.shopName
+    );
+    if (marker) {
+      console.log(marker);
+      const items = marker.sellOrders;
+      if (!this.sellOrders.length) {
+        this.sellOrders = items.filter((item) => {
+          return item.amountInStock > 0;
+        });
+      } else {
+        for (const order of this.sellOrders) {
+          const item = items.find(
+            (item) =>
+              item.itemId === order.itemId &&
+              item.currencyId === order.currencyId
+          );
+          if (item) {
+            const difference = order.amountInStock - item.amountInStock;
+            if (difference > 0) {
+              const duplicate = items.find(
+                (duplicate) => duplicate.itemId === item.itemId
+              );
+              if (duplicate) {
+                console.log('DUPLICATE');
+              }
+              await this.debug(
+                difference +
+                  ' ' +
+                  itemList[order.itemId.toString()] +
+                  ' was sold for ' +
+                  order.costPerItem +
+                  ' ' +
+                  itemList[order.currencyId.toString()],
+                false
+              );
+            }
+          }
+        }
+        this.sellOrders = items.filter((item) => {
+          return item.amountInStock > 0;
+        });
+        // console.log(this.sellOrders);
+      }
+    }
+  }
 
   async addCronJob(name: string) {
     const job = new CronJob(`*/5 * * * * *`, () => {
       this.checkCrates();
+    });
+    this.schedulerRegistry.addCronJob(name, job);
+    job.start();
+  }
+
+  async addCronJobForReconnect(name: string) {
+    const job = new CronJob(`*/30 * * * * *`, () => {
+      this.rustPlusService.connect();
     });
     this.schedulerRegistry.addCronJob(name, job);
     job.start();
@@ -509,18 +559,22 @@ export class RustPlusHandlerService implements OnModuleInit {
     await this.checkOilCrate('large', mapMarkers);
     await this.checkCargo(mapMarkers);
     await this.checkHeli(mapMarkers);
+    await this.checkBradley(mapMarkers);
     await this.checkCH47(mapMarkers);
     await this.checkCargoCrate(mapMarkers);
     await this.checkTeammates();
-    // await this.checkShop(mapMarkers);
+    await this.checkShop(mapMarkers);
     //let all cargo crates be pushed to an array (if they exist on app start)
     setTimeout(async () => await this.checkCH47Crate(mapMarkers), 20000);
   }
 
   @OnEvent('disconnected')
-  onDisconnected() {
-    if (!this.schedulerRegistry.doesExist('cron', 'oil_rig'))
+  async onDisconnected() {
+    if (this.schedulerRegistry.doesExist('cron', 'oil_rig')) {
       this.schedulerRegistry.deleteCronJob('oil_rig');
+    }
+    if (!this.schedulerRegistry.doesExist('cron', 'reconnecting'))
+      await this.addCronJobForReconnect('reconnecting');
     console.log('disconnected');
   }
 

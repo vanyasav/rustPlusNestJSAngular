@@ -134,6 +134,7 @@ export class RustPlusService {
       this.websocket.terminate();
       this.websocket = null;
     }
+    this.eventEmitter.emit('disconnected');
   }
 
   /**
@@ -175,7 +176,6 @@ export class RustPlusService {
       // try to connect again after timeout
       const timeout = setTimeout(() => {
         this.disconnect();
-        this.connect();
         // reject(new Error('Timeout reached while waiting for response'));
       }, timeoutMilliseconds);
 

@@ -7,6 +7,7 @@
   "CARGO_CRATE_SPAWNED": "$t(translation.{number}) запертый ящик на грузовом корабле появился",
   "HELI_LEFT_MAP": "Боевой вертолет покинул карту",
   "HELI_DESTROYED": "Боевой вертолет уничтожен $t(translation.{location})#{grid}",
+  "BRADLEY_DESTROYED": "Боевой танк уничтожен $t(translation.{location})#{grid}",
   "HELI_SPAWNED": "Боевой вертолет обнаружен $t(translation.{location})#{grid}",
   "LOCKED_CRATE_DROPPED": "Запертый ящик появился $t(translation.{location})#{grid}",
   "LOCKED_CRATE_LOOTED": "Запертый ящик пропал $t(translation.{location})#{grid}",
